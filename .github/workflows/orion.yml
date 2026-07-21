@@ -1,0 +1,143 @@
+name: 🦅 Orion Selfbot 24/7
+
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'Token do Discord'
+        required: true
+        type: string
+      custom_status:
+        description: 'Status personalizado (opcional)'
+        required: false
+        type: string
+        default: 'Orion v2 | /help'
+  schedule:
+    # Cron job every 5.5 hours to restart (GitHub Actions max 6h)
+    - cron: '0 */5 * * *'
+  push:
+    branches: [ main ]
+
+# Prevent concurrent runs - cancel old ones
+concurrency:
+  group: orion-selfbot
+  cancel-in-progress: true
+
+env:
+  DISCORD_TOKEN: ${{ inputs.token || secrets.DISCORD_TOKEN || '' }}
+  STATUS_TEXT: ${{ inputs.custom_status || 'Orion v2 | /help' }}
+
+jobs:
+  run-orion:
+    name: 🦅 Orion Selfbot Runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 330  # 5.5 hours (just under 6h limit)
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm install
+          pip3 install --quiet scapy 2>/dev/null || true
+
+      - name: 🛠 Configure Token
+        run: |
+          if [ -z "$DISCORD_TOKEN" ]; then
+            echo "❌ DISCORD_TOKEN nao definido!"
+            echo "Forneca o token via workflow_dispatch ou secret DISCORD_TOKEN"
+            exit 1
+          fi
+          # Write token to config
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+            cfg.token = '$DISCORD_TOKEN';
+            cfg.status_text = '$STATUS_TEXT';
+            fs.writeFileSync('config.json', JSON.stringify(cfg, null, 2));
+            console.log('✅ Token configurado!');
+          "
+
+      - name: 📝 Create Spam File
+        run: |
+          # Ensure spam file exists
+          mkdir -p /tmp/orion
+          if [ ! -f "storage/downloads/text.txt" ]; then
+            mkdir -p storage/downloads
+            cat > storage/downloads/text.txt << 'TEXTFILE'
+          @everyone @here ORION RAID
+          ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ
+          𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫
+          ORION SELFBOT v2 - SETSOCIETY
+          ᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎
+          🔥 RAID MODE ACTIVATED 🔥
+          @everyone @here DESTROYED BY ORION
+        TEXTFILE
+          fi
+
+      - name: 🚀 Start Orion Selfbot
+        run: |
+          echo "🔥 ORION SELFBOT INICIANDO..."
+          echo "⏱ Timeout: 330 minutos (5.5 horas)"
+          echo ""
+          
+          # Function to restart the bot
+          restart_bot() {
+            echo "🔄 Reiniciando Orion Selfbot..."
+            sleep 5
+            node orion.js &
+            BOT_PID=$!
+            echo "✅ Orion rodando (PID: $BOT_PID)"
+          }
+          
+          # Start bot
+          node orion.js &
+          BOT_PID=$!
+          echo "✅ Orion rodando (PID: $BOT_PID)"
+          
+          # Watchdog loop - keep alive for 5.5 hours
+          END_TIME=$(( $(date +%s) + 330 * 60 ))
+          
+          while [ $(date +%s) -lt $END_TIME ]; do
+            # Check if bot is still running
+            if ! kill -0 $BOT_PID 2>/dev/null; then
+              echo "❌ Bot morreu! Reiniciando..."
+              restart_bot
+            fi
+            
+            # Log heartbeat every 30 min
+            HEARTBEAT_INTERVAL=$((5 * 60))  # 5 min
+            if [ $(( $(date +%s) % HEARTBEAT_INTERVAL )) -lt 60 ]; then
+              echo "❤️ $(date '+%H:%M:%S') - Orion ativo | PID: $BOT_PID | Uptime: $(ps -o etime= -p $BOT_PID 2>/dev/null | xargs)"
+            fi
+            
+            sleep 30
+          done
+          
+          echo "⏱ 5.5 horas atingido! Encerrando para restart..."
+          kill $BOT_PID 2>/dev/null
+          echo "✅ Orion finalizado. O proximo workflow vai iniciar."
+          
+        shell: bash
+        timeout-minutes: 331
+
+      - name: 📊 Log Summary
+        if: always()
+        run: |
+          echo "=== ORION SELFBOT SUMMARY ==="
+          echo "Status: ${{ job.status }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run: ${{ github.run_id }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "================================"

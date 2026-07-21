@@ -1,0 +1,7 @@
+node_modules/
+orion.pid
+orion_watchdog.log
+config.json
+storage/
+*.log
+.env
