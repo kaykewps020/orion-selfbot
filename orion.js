@@ -257,14 +257,21 @@ register('gping', async (msg, args) => {
 
 // ─── COMMAND: /invite ─────────────────────────────────────────────────────────
 register('invite', async (msg, args) => {
-  // /invite [channel_id]
-  const channelId = args[0] || msg.channel.id;
+  // /invite [channel_id] — gera invite do canal ou link OAuth2 do bot
+  const clientId = client.user.id;
+  const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+  
+  if (!args[0]) {
+    return msg.reply(`🔗 **Link do Orion Bot:**\n${oauthUrl}\n\nUse este link para adicionar o bot a qualquer servidor.`);
+  }
+
+  const channelId = args[0];
   let targetChannel;
 
   try {
     targetChannel = await client.channels.fetch(channelId);
   } catch (e) {
-    return msg.reply('❌ Canal invalido.');
+    return msg.reply(`❌ Canal invalido.\n\n🔗 **Link OAuth2 do Bot:**\n${oauthUrl}`);
   }
 
   try {
@@ -273,13 +280,12 @@ register('invite', async (msg, args) => {
       maxUses: 0,
       reason: 'Orion Selfbot - Invite Generator'
     });
-    await msg.reply(`🔗 **Invitado gerado:** https://discord.gg/${invite.code}`);
+    await msg.reply(`🔗 **Invite gerado:** https://discord.gg/${invite.code}\n\n🤖 **Link OAuth2 do Bot:**\n${oauthUrl}`);
     log('cmd', `/invite -> discord.gg/${invite.code} para #${targetChannel.name}`);
   } catch (e) {
-    // Try without permissions — just return channel link
-    await msg.reply(`🔗 Link do canal: https://discord.com/channels/${targetChannel.guild?.id || '@me'}/${targetChannel.id}`);
+    await msg.reply(`🔗 Link do canal: https://discord.com/channels/${targetChannel.guild?.id || '@me'}/${targetChannel.id}\n\n🤖 **Link OAuth2 do Bot:**\n${oauthUrl}`);
   }
-}, { usage: '/invite [channel_id]', desc: 'Gera invite para o canal' });
+}, { usage: '/invite [channel_id]', desc: 'Gera invite do canal + link OAuth2 do bot' });
 
 // ─── COMMAND: /spam ──────────────────────────────────────────────────────────
 register('spam', async (msg, args) => {
@@ -529,39 +535,31 @@ register('tokeninfo', async (msg, args) => {
 
 // ─── COMMAND: /join ──────────────────────────────────────────────────────────
 register('join', async (msg, args) => {
-  // /join <invite_code>
+  // /join <invite_code> — gera link OAuth2 para adicionar o bot
   const inviteCode = args[0]?.replace('https://discord.gg/', '').replace('discord.gg/', '');
 
   if (!inviteCode) {
-    return msg.reply('❌ Use: `/join <codigo_do_convite>`');
+    // Generate OAuth2 URL for the bot
+    const clientId = client.user.id;
+    const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+    return msg.reply(`🔗 **Link para adicionar o Orion a servidores:**\n${oauthUrl}\n\nPara raidear um server, adicione o bot por este link e depois use os comandos.`);
   }
 
+  // Try to join via invite (works for user tokens, bot accounts need OAuth2)
   try {
     const invite = await client.fetchInvite(inviteCode);
     const guildName = invite.guild?.name || 'Servidor';
-    await msg.reply(`📥 **Entrando em ${guildName}...**`);
-    // For selfbots, we use the API directly
-    const response = await axios.post(
-      `https://discord.com/api/v10/invites/${inviteCode}`,
-      {},
-      {
-        headers: {
-          'Authorization': TOKEN,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      }
-    );
-    await msg.reply(`✅ **Entrou em ${guildName} com sucesso!**`);
-    log('cmd', `/join -> ${guildName}`);
+    
+    // For bot accounts, generate the OAuth2 URL instead
+    const clientId = client.user.id;
+    const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands&guild_id=${invite.guild?.id}`;
+    
+    await msg.reply(`📥 **Para adicionar o Orion em ${guildName}:**\n\n1️⃣ Clique no link:\n${oauthUrl}\n\n2️⃣ Autorize o bot\n\n3️⃣ Pronto! Use os comandos de raid.`);
+    log('cmd', `/join -> OAuth2 gerado para ${guildName}`);
   } catch (e) {
-    if (e.response?.status === 400) {
-      msg.reply('❌ Convite invalido ou expirado.');
-    } else {
-      msg.reply(`❌ Erro: ${e.message}`);
-    }
+    msg.reply(`❌ Erro: ${e.message}\n\nUse o link OAuth2 para adicionar o bot a servidores.`);
   }
-}, { usage: '/join <invite>', desc: 'Entra em um servidor via invite' });
+}, { usage: '/join [invite]', desc: 'Gera link OAuth2 para adicionar o bot a servidores' });
 
 // ─── COMMAND: /jvc ──────────────────────────────────────────────────────────
 // Joins voice channel and DDoS the voice server IP
