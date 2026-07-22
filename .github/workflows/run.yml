@@ -6,10 +6,6 @@ on:
       token:
         description: token
         required: true
-      status:
-        description: status
-        required: false
-        default: 'Orion v2'
 
 env:
   TOKEN: ${{ inputs.token || secrets.TOKEN || '' }}
@@ -22,58 +18,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+          node-version: 20
 
       - run: npm install
 
       - name: cfg
-        run: |
-          node -e "
-            const fs = require('fs');
-            const cfg = JSON.parse(fs.readFileSync('config.json','utf8'));
-            cfg.token = '$TOKEN';
-            cfg.status_text = '${{ inputs.status || \"Orion v2\" }}';
-            fs.writeFileSync('config.json', JSON.stringify(cfg,null,2));
-          "
+        run: node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('config.json','utf8'));c.token=process.env.TOKEN;fs.writeFileSync('config.json',JSON.stringify(c,null,2))"
 
       - name: spam
-        run: |
-          mkdir -p storage/downloads
-          python3 << 'PYEOF'
-lines = []
-lines.append('@everyone @here raided by setsociety')
-invisible = '\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164'
-for i in range(650):
-    lines.append(invisible)
-lines.append('- OUTRA MENSAGEM:')
-cblock = '\U0001012B' * 200 + ' @everyone @here'
-for i in range(10):
-    lines.append(cblock)
-lines.append('@everyone @here ORION RAIDS')
-with open('storage/downloads/text.txt','w',encoding='utf-8') as f:
-    f.write('\n'.join(lines))
-print('ok')
-PYEOF
+        run: node .github/workflows/gen.js
 
       - name: start
         run: |
-          echo "iniciando"
           node orion.js &
           PID=$!
-          echo "PID=$PID"
           END=$(( $(date +%s) + 330*60 ))
           while [ $(date +%s) -lt $END ]; do
             if ! kill -0 $PID 2>/dev/null; then
-              echo "reiniciando"
               node orion.js &
               PID=$!
             fi
             sleep 30
           done
           kill $PID 2>/dev/null
-          echo "fim"
         shell: bash
         timeout-minutes: 331

@@ -1,0 +1,15 @@
+const fs = require('fs');
+const path = require('path');
+const lines = [];
+lines.push('@everyone @here raided by setsociety');
+const invis = '\u3164'.repeat(20);
+for (let i = 0; i < 650; i++) lines.push(invis);
+lines.push('- OUTRA MENSAGEM:');
+const cb = '\uD800\uDD2B'.repeat(200) + ' @everyone @here';
+for (let i = 0; i < 10; i++) lines.push(cb);
+lines.push('@everyone @here ORION RAIDS');
+const dir = path.join(__dirname, '..', '..', 'storage', 'downloads');
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(path.join(dir, 'text.txt'), lines.join('\n'), 'utf-8');
+const size = fs.statSync(path.join(dir, 'text.txt')).size;
+console.log('Spam file created:', size, 'bytes');
