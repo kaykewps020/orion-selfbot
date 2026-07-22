@@ -31,7 +31,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
-  ]
+  ],
+  allowedMentions: { parse: ['users', 'roles', 'everyone'] }
 });
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
