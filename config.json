@@ -1,0 +1,9 @@
+{
+  "token": "",
+  "prefix": "/",
+  "spam_file": "storage/downloads/text.txt",
+  "raid_default_count": 20,
+  "cooldown": 0,
+  "status_type": "playing",
+  "status_text": "Orion v2 | /help"
+}
