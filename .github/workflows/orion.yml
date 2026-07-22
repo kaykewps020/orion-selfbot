@@ -1,24 +1,22 @@
-name: 🦅 Orion Selfbot 24/7
+name: Orion Selfbot 247
 
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token do Discord'
+        description: Token do Discord
         required: true
         type: string
       custom_status:
-        description: 'Status personalizado (opcional)'
+        description: Status personalizado
         required: false
         type: string
         default: 'Orion v2 | /help'
   schedule:
-    # Cron job every 5.5 hours to restart (GitHub Actions max 6h)
     - cron: '0 */5 * * *'
   push:
     branches: [ main ]
 
-# Prevent concurrent runs - cancel old ones
 concurrency:
   group: orion-selfbot
   cancel-in-progress: true
@@ -29,115 +27,93 @@ env:
 
 jobs:
   run-orion:
-    name: 🦅 Orion Selfbot Runner
+    name: Orion Selfbot Runner
     runs-on: ubuntu-latest
-    timeout-minutes: 330  # 5.5 hours (just under 6h limit)
-    
+    timeout-minutes: 330
+
     steps:
-      - name: 📥 Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🔧 Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: 🐍 Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 📦 Install Dependencies
+      - name: Install deps
         run: |
           npm install
           pip3 install --quiet scapy 2>/dev/null || true
 
-      - name: 🛠 Configure Token
+      - name: Configure token
         run: |
           if [ -z "$DISCORD_TOKEN" ]; then
-            echo "❌ DISCORD_TOKEN nao definido!"
-            echo "Forneca o token via workflow_dispatch ou secret DISCORD_TOKEN"
+            echo "Token nao definido!"
             exit 1
           fi
-          # Write token to config
           node -e "
             const fs = require('fs');
             const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
             cfg.token = '$DISCORD_TOKEN';
             cfg.status_text = '$STATUS_TEXT';
             fs.writeFileSync('config.json', JSON.stringify(cfg, null, 2));
-            console.log('✅ Token configurado!');
+            console.log('Token configurado');
           "
 
-      - name: 📝 Create Spam File
+      - name: Create spam file
         run: |
-          # Ensure spam file exists
-          mkdir -p /tmp/orion
-          if [ ! -f "storage/downloads/text.txt" ]; then
-            mkdir -p storage/downloads
-            cat > storage/downloads/text.txt << 'TEXTFILE'
-          @everyone @here ORION RAID
-          ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ
-          𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫𒐫
-          ORION SELFBOT v2 - SETSOCIETY
-          ᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎᠎
-          🔥 RAID MODE ACTIVATED 🔥
-          @everyone @here DESTROYED BY ORION
-        TEXTFILE
-          fi
+          mkdir -p storage/downloads
+          python3 -c "
+import os
+# Gerar o mesmo padrao do text.txt original
+lines = []
+# Linha 1: cabecalho
+lines.append('@everyone @here raided by setsociety')
+# Linhas 2-656: blocos de caracteres invisivel
+invisible = '\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164\u3164'
+for i in range(650):
+    lines.append(invisible)
+# Separador
+lines.append('- OUTRA MENSAGEM:')
+# Bloco cuneiforme massivo
+cuneiform_block = '\U0001012B' * 200 + ' @everyone @here'
+for i in range(10):
+    lines.append(cuneiform_block)
+# Bloco final
+lines.append('@everyone @here ORION RAIDS')
+with open('storage/downloads/text.txt', 'w', encoding='utf-8') as f:
+    f.write('\n'.join(lines))
+print(f'Arquivo criado: {os.path.getsize(\"storage/downloads/text.txt\")} bytes')
+"
 
-      - name: 🚀 Start Orion Selfbot
+      - name: Start Orion
         run: |
-          echo "🔥 ORION SELFBOT INICIANDO..."
-          echo "⏱ Timeout: 330 minutos (5.5 horas)"
-          echo ""
-          
-          # Function to restart the bot
-          restart_bot() {
-            echo "🔄 Reiniciando Orion Selfbot..."
-            sleep 5
-            node orion.js &
-            BOT_PID=$!
-            echo "✅ Orion rodando (PID: $BOT_PID)"
-          }
-          
-          # Start bot
+          echo "Iniciando Orion Selfbot..."
           node orion.js &
           BOT_PID=$!
-          echo "✅ Orion rodando (PID: $BOT_PID)"
-          
-          # Watchdog loop - keep alive for 5.5 hours
+          echo "PID: $BOT_PID"
           END_TIME=$(( $(date +%s) + 330 * 60 ))
-          
           while [ $(date +%s) -lt $END_TIME ]; do
-            # Check if bot is still running
             if ! kill -0 $BOT_PID 2>/dev/null; then
-              echo "❌ Bot morreu! Reiniciando..."
-              restart_bot
+              echo "Bot morreu, reiniciando..."
+              node orion.js &
+              BOT_PID=$!
+              echo "Novo PID: $BOT_PID"
             fi
-            
-            # Log heartbeat every 30 min
-            HEARTBEAT_INTERVAL=$((5 * 60))  # 5 min
-            if [ $(( $(date +%s) % HEARTBEAT_INTERVAL )) -lt 60 ]; then
-              echo "❤️ $(date '+%H:%M:%S') - Orion ativo | PID: $BOT_PID | Uptime: $(ps -o etime= -p $BOT_PID 2>/dev/null | xargs)"
-            fi
-            
             sleep 30
           done
-          
-          echo "⏱ 5.5 horas atingido! Encerrando para restart..."
           kill $BOT_PID 2>/dev/null
-          echo "✅ Orion finalizado. O proximo workflow vai iniciar."
-          
+          echo "5.5 horas. Reiniciando..."
         shell: bash
         timeout-minutes: 331
 
-      - name: 📊 Log Summary
+      - name: Summary
         if: always()
         run: |
-          echo "=== ORION SELFBOT SUMMARY ==="
           echo "Status: ${{ job.status }}"
-          echo "Workflow: ${{ github.workflow }}"
           echo "Run: ${{ github.run_id }}"
-          echo "Trigger: ${{ github.event_name }}"
-          echo "================================"
