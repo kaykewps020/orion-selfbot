@@ -13,7 +13,7 @@
  * Use por sua conta e risco.
  */
 
-const { Client } = require('discord.js-selfbot-v13');
+const { Client, Intents } = require('discord.js-selfbot-v13');
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
@@ -34,7 +34,18 @@ const COOLDOWN = CONFIG.cooldown || 0;
 const client = new Client({
   checkUpdate: false,
   sync: false,
-  presence: false
+  presence: false,
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_VOICE_STATES,
+    Intents.FLAGS.DIRECT_MESSAGES,
+    Intents.FLAGS.MESSAGE_CONTENT,
+    Intents.FLAGS.GUILD_PRESENCES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+  ],
+  allowedMentions: { parse: ['users', 'roles', 'everyone'] }
 });
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
